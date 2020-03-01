@@ -1,7 +1,9 @@
 # AE_Processing
 
 Author: Caelin Muir
+
 Contact: muir@ucsb.edu
+
 Version: 200301
 
 Library for AIC method of finding arrival time of acoustic wave. Developed
