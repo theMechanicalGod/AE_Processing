@@ -62,6 +62,11 @@ def AIC(CF_volt, k):
         raise ValueError('k must be greater than 1')
     if k > N-2:
         raise ValueError('k must be less than len(CF_volt)-2')
+
+
+    if CF_volt[0]==CF_volt[1]: # cleans data s.t. AIC function works
+        CF_volt[1]+=CF_volt[1]*.01
+
     AIC = k*np.log(np.var(CF_volt[0:k]))+(N-k-1)*np.log(np.var(CF_volt[k: N]))
     return AIC
 
@@ -69,43 +74,70 @@ def AIC(CF_volt, k):
 
 
 
-def get_arrival(CF_volt, time, delta= .1, tam=20, tfa=10, tfb=20):
+def get_arrival(CF_volt, time, delta= .1, tam=20, tfa=10, tfb=20, out='time'):
     '''
-    Gets arrival time of a single signal
+    Gets arrival time of a single signal. Currently uses 1 pass of AIC window
+
     volt: array of voltage readings corresponding to time (N*1 array-like)
     time: array of times (N*1 array-like)
-    delta: spacing between readings in microseconds
+    delta: spacing between sensor readings in microseconds
     tam = window parameter 1 in microseconds
     tfa = window parameter 2 in microseconds
     tfb = window parameter 3 in microseconds
+    out = determines if output is a time (float) or index (int)
 
     returns:
-    arrival (float)
+    arrival time (float)
+    arrival index (int)
     '''
     k1 = np.argmax(CF_volt)
     tam = int(tam/delta) #number of indicies
     N = (k1+1)+tam    #length of signal to inspect
 
-    if N > len(CF_volt-2):
-        raise ValueError('tam window is too large, need to reduce')
+    if N > len(CF_volt)-2:
+        #raise ValueError('tam window is too large, need to reduce')
+        return(np.nan)
 
     AIC1 = np.zeros(N)
-    for k in range(2, N+1):
-        AIC1[k-1] = AIC(CF_volt, k)
+    cut1 = CF_volt[0:N]
+    for k in range(2, N-2):
+        AIC1[k-1] = AIC(cut1, k)
     AIC1[0]=AIC1[1]
 
 
     k2 = np.argmin(AIC1)
+    '''
+    # seems to work better with 1 iteration
+
     tfb = int(tfb/delta)
     tfa = int(tfa/delta)
 
-    cut = CF_volt[k2-tfb:]
-    N2 = tfa+tfb
+    if k2+tfa+1>len(CF_volt):
+        #print(k2, tfa)
+        raise ValueError('something when wrong here')
 
+    if k2-tfb<0:
+        cut2 = CF_volt[0:k2+tfa]
+    else:
+        cut2 = CF_volt[k2-tfb:k2+tfa]
+    N2 = len(cut2)
     AIC2 = np.zeros(N2)
-    for k in range(2, N2+1):
-        AIC2[k-1] = AIC(cut, k)
+    #print(cut2)
+    for k in range(2, N2-2):
+        AIC2[k-1] = AIC(cut2, k)
     AIC2[0]=AIC2[1]
     arrival = k2-tfb+np.argmin(AIC2) #index of arrival time
+    '''
 
-    return(time[arrival])
+    if out=='time':
+        return(time[k2])
+    elif out=='index':
+        return(k2)
+    else:
+        raise ValueError('Unexpected argument in out')
+
+
+'''
+def get_first_peak(wave, CF='Sedlak'):
+    To be implemented at a later date
+'''
