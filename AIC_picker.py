@@ -1,5 +1,5 @@
 import numpy as np
-
+from scipy import signal 
 
 
 def Sedlak_CF(volt, R = 4):
@@ -137,7 +137,13 @@ def get_arrival(CF_volt, time, delta= .1, tam=20, tfa=10, tfb=20, out='time'):
         raise ValueError('Unexpected argument in out')
 
 
-'''
-def get_first_peak(wave, CF='Sedlak'):
-    To be implemented at a later date
-'''
+
+def get_first_peak_aic(wave, CF='Sedlak'):
+    if CF == 'Sedlak':
+        i = get_arrival(wave,None,out ='index')
+        wave_no_noise = np.abs(wave)[i:]
+        wave_smooth = signal.convolve(wave_no_noise, np.ones(5)/5)
+        peaks = signal.find_peaks(wave_smooth,height=0)
+        return peaks[0][0]+i-1
+        
+
