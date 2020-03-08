@@ -128,15 +128,15 @@ def get_arrival(CF_volt, time=[], delta= .1, tam=20, tfa=10, tfb=20, out='index'
 
 
 def get_first_peak_aic(wave, CF='Sedlak', N = 3):
-        '''
-        Finds first peak in an AE signal
-        wave: signal, single event (array-like)
-        CF: Characteristic function of AIC method
-        N: Size of moving average
+    '''
+    Finds first peak in an AE signal
+    wave: signal, single event (array-like)
+    CF: Characteristic function of AIC method
+    N: Size of moving average
 
-        returns:
-        snipped: waveform with no pre-trigger noise (N*1 array-like)
-        '''
+    returns:
+    snipped: waveform with no pre-trigger noise (N*1 array-like)
+    '''
     if CF == 'Sedlak':
         i = get_arrival(wave, out ='index')
         wave_no_noise = wave[i:]
@@ -180,7 +180,7 @@ def end_snip(signal, delta= .1, window_size = 10, slide_length=40):
     window = window_size/delta
     slide_length = int(slide_length/delta)
     variance=[]
-    
+
     cf = abs_CF(signal)
     maxIndex = np.argmax(np.abs(cf))
 
