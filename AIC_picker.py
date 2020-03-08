@@ -1,47 +1,42 @@
 import numpy as np
-from scipy import signal 
-
+from scipy import signal
+from ae_measure2 import *
 
 def Sedlak_CF(volt, R = 4):
     '''
     Maps an N*1 array of voltage readings to the characteristic wave via the
     characteristic function put forth by Sedlak et. al. 2013
-
     volt: array of voltage readings corresponding to time (N*1 array-like)
     R: parameter of the characteristic function
-
-    returns:
-    CF_volt (array-like)
+    returns: CF_volt (array-like)
     '''
     CF_volt = np.ones(len(volt))*abs(volt[0])
     for i in range(1,len(volt)):
         CF_volt[i] = abs(volt[i])+R*abs(volt[i]-volt[i-1])
     return CF_volt
 
+
 def squared_CF(volt):
     '''
     Maps an N*1 array of voltage readings to the characteristic wave via the
     characteristic function x(i) -> x(i)^2
-
     volt: array of voltage readings corresponding to time (N*1 array-like)
-
     returns:
     CF_volt (float)
     '''
     CF_volt = np.square(volt)
     return CF_volt
 
+
 def abs_CF(volt):
     '''
     Maps an N*1 array of voltage readings to the characteristic wave via the
     characteristic function x(i) -> x(i)^2
-
     volt: array of voltage readings corresponding to time (N*1 array-like)
-
     returns:
     CF_volt (float)
     '''
-    CF_volt = abs(volt)
+    CF_volt = np.abs(volt)
     return CF_volt
 
 
@@ -49,11 +44,9 @@ def abs_CF(volt):
 def AIC(CF_volt, k):
     '''
     AIC value of signal through point k, assuming points are labeled from 1
-
     CF_volt: array of the characteristic functin of voltage readings
     corresponding to time (N*1 array-like)
     k: range of values for which AIC is calculated
-
     returns:
     AIC (float)
     '''
@@ -71,15 +64,11 @@ def AIC(CF_volt, k):
     return AIC
 
 
-
-
-
-def get_arrival(CF_volt, time, delta= .1, tam=20, tfa=10, tfb=20, out='time'):
+def get_arrival(CF_volt, time=[], delta= .1, tam=20, tfa=10, tfb=20, out='index'):
     '''
     Gets arrival time of a single signal. Currently uses 1 pass of AIC window
-
     volt: array of voltage readings corresponding to time (N*1 array-like)
-    time: array of times (N*1 array-like)
+    time: array of times (N*1 array-like)                functionality to be added later
     delta: spacing between sensor readings in microseconds
     tam = window parameter 1 in microseconds
     tfa = window parameter 2 in microseconds
@@ -87,9 +76,12 @@ def get_arrival(CF_volt, time, delta= .1, tam=20, tfa=10, tfb=20, out='time'):
     out = determines if output is a time (float) or index (int)
 
     returns:
-    arrival time (float)
     arrival index (int)
+    arrival time (float)
     '''
+
+
+
     k1 = np.argmax(CF_volt)
     tam = int(tam/delta) #number of indicies
     N = (k1+1)+tam    #length of signal to inspect
@@ -108,14 +100,11 @@ def get_arrival(CF_volt, time, delta= .1, tam=20, tfa=10, tfb=20, out='time'):
     k2 = np.argmin(AIC1)
     '''
     # seems to work better with 1 iteration
-
     tfb = int(tfb/delta)
     tfa = int(tfa/delta)
-
     if k2+tfa+1>len(CF_volt):
         #print(k2, tfa)
         raise ValueError('something when wrong here')
-
     if k2-tfb<0:
         cut2 = CF_volt[0:k2+tfa]
     else:
@@ -138,14 +127,77 @@ def get_arrival(CF_volt, time, delta= .1, tam=20, tfa=10, tfb=20, out='time'):
 
 
 
-def get_first_peak_aic(wave, CF='Sedlak'):
-    N = 3 # size of moving average
+def get_first_peak_aic(wave, CF='Sedlak', N = 3):
+        '''
+        Finds first peak in an AE signal
+        wave: signal, single event (array-like)
+        CF: Characteristic function of AIC method
+        N: Size of moving average
+
+        returns:
+        snipped: waveform with no pre-trigger noise (N*1 array-like)
+        '''
     if CF == 'Sedlak':
-        i = get_arrival(wave,None,out ='index')
+        i = get_arrival(wave, out ='index')
         wave_no_noise = wave[i:]
         wave_smooth = np.abs(signal.convolve(wave_no_noise, np.ones(N)/N))
         peaks = signal.find_peaks(wave_smooth,height = 1e-6)
 
         return peaks[0][0]+i-1
-        
 
+def front_snip(signal, CF = 'Sedlak'):
+    '''
+    Snipping routine which removes pre-trigger noise
+    signal: signal, single event (array-like)
+    CF: Characteristic function of AIC method
+
+    returns:
+    snipped: waveform with no pre-trigger noise (N*1 array-like)
+    '''
+    if is_clipped(signal):
+        raise ValueError('signal is clipped')
+        return np.nan
+
+    if CF == 'Sedlak':
+        cf = Sedlak_CF(signal)
+
+    index = get_arrival(cf)
+    return signal[index:]
+
+
+
+def end_snip(signal, delta= .1, window_size = 10, slide_length=40):
+    '''
+    Snipping routine which removes flexural wave component
+    signal: signal, single event (array-like)
+    delta: spacing between sensor readings in microseconds
+    window_size: length of sliding window in microseconds
+    slide_length: Number of microseconds the window slides over
+
+    returns:
+    snipped: waveform with no flexural component (N*1 array-like)
+    '''
+    window = window_size/delta
+    slide_length = int(slide_length/delta)
+    variance=[]
+    
+    cf = abs_CF(signal)
+    maxIndex = np.argmax(np.abs(cf))
+
+    if maxIndex-window/2 < 0:
+        lower = 0
+        upper = int(slide_length)
+    elif maxIndex+window/2 > len(signal):
+        raise ValueError('Poor waveform, inspect visually')
+        return np.nan
+    elif maxIndex+window/2+slide_length > len(signal):
+        raise ValueError('Reduce slide length')
+        return np.nan
+    else:
+        lower = int(maxIndex-window/2)
+        upper = int(maxIndex+window/2)
+
+    for i in range(slide_length):
+        variance.append(np.var(cf[lower+i:upper+i]))
+    index = maxIndex+np.argmin(variance)-lower
+    return signal[:index]
