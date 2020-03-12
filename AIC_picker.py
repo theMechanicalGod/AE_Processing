@@ -1,3 +1,13 @@
+'''
+Author: Caelin Muir
+Contact: muir@ucsb.edu
+Version: 200312
+
+This is a class definition and function definition file for AIC method of finding
+signal onset
+'''
+
+
 import numpy as np
 from scipy import signal
 from ae_measure2 import *
